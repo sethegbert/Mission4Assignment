@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Mission4Assignment.Models;
 using System;
@@ -11,13 +12,11 @@ namespace Mission4Assignment.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly ILogger<HomeController> _logger;
-        private MoviesContext blahContext { get; set; }
+        private MoviesContext movieContext { get; set; }
 
-        public HomeController(ILogger<HomeController> logger, MoviesContext someName)
+        public HomeController(MoviesContext someName)
         {
-            _logger = logger;
-            blahContext = someName;
+            movieContext = someName;
         }
 
         public IActionResult Index()
@@ -28,15 +27,27 @@ namespace Mission4Assignment.Controllers
         [HttpGet]
         public IActionResult AddMovies()
         {
+            ViewBag.Categories = movieContext.Categories.ToList();
+
             return View();
         }
 
         [HttpPost]
         public IActionResult AddMovies (NewMovie response)
         {
-            blahContext.Add(response);
-            blahContext.SaveChanges();
-            return View("Confirmation", response);
+            if (ModelState.IsValid)
+            {
+                movieContext.Add(response);
+                movieContext.SaveChanges();
+                return View("Confirmation", response);
+            }
+            else
+            {
+                ViewBag.Categories = movieContext.Categories.ToList();
+
+                return View(response);
+            }
+            
         }
 
         public IActionResult Podcasts()
@@ -44,15 +55,52 @@ namespace Mission4Assignment.Controllers
             return View();
         }
 
-        public IActionResult Privacy()
+        [HttpGet]
+        public IActionResult MovieList()
         {
-            return View();
+            var applications = movieContext.Responses
+                .Include(x => x.Category)
+                .Where(x => x.Title != "Sharknado")
+                .OrderBy(x => x.Title)
+                .ToList();
+
+            return View(applications);
         }
 
-        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
+        [HttpGet]
+        public IActionResult Edit (int movieid)
         {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            ViewBag.Categories = movieContext.Categories.ToList();
+
+            var movie = movieContext.Responses.Single(x => x.MovieId == movieid);
+
+            return View("AddMovies", movie);
+        }
+
+        [HttpPost]
+        public IActionResult Edit (NewMovie response)
+        {
+            movieContext.Update(response);
+            movieContext.SaveChanges();
+
+            return RedirectToAction("MovieList");
+        }
+
+        [HttpGet]
+        public IActionResult Delete (int movieid)
+        {
+            var application = movieContext.Responses.Single(x => x.MovieId == movieid);
+
+            return View(application);
+        }
+
+        [HttpPost]
+        public IActionResult Delete (NewMovie response)
+        {
+            movieContext.Responses.Remove(response);
+            movieContext.SaveChanges();
+
+            return RedirectToAction("MovieList");
         }
     }
 }
